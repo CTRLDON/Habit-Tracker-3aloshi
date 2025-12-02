@@ -60,7 +60,27 @@ app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "super-secret-jwt-key
 
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
-cors = CORS(app, resources={r"*": {"origins": "*"}})
+# Configure CORS to allow all origins and expose the Authorization header so that
+# browsers can read it during preflight. Without exposing Authorization, some
+# browsers may fail to send the header correctly.
+cors = CORS(
+    app,
+    resources={r"*": {"origins": "*"}},
+    expose_headers=["Authorization"],
+    supports_credentials=False,
+)
+
+@app.before_request
+def handle_preflight() -> None:
+    """Return a 200 OK for any CORS preflight OPTIONS request.
+
+    When the browser sends an OPTIONS request to check CORS permissions, we
+    bypass authentication and return early. This avoids `jwt_required` raising
+    errors on preflight requests, which would otherwise result in a 422 status.
+    """
+    if request.method == "OPTIONS":
+        # Flask-CORS will add the appropriate CORS headers
+        return "", 200
 
 
 ###########################
