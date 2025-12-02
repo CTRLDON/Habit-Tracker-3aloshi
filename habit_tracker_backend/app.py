@@ -235,14 +235,13 @@ def quote() -> Dict[str, str]:
     return get_quote()
 
 @app.route("/habits", methods=["GET"])
-@jwt_required()
+@jwt_required(optional=True)
 def get_habits() -> Dict[str, List[Dict[str, object]]]:
     """
     Return the user's habits and completion status for a given date.
 
-    Query parameters:
-      - date: optional date in YYYY-MM-DD format. Defaults to today (server time).
-    Returns a list of habits with fields id, name, and completed (boolean).
+    If a valid JWT is present, the user_id will be available; otherwise
+    user_id will be None and completions will default to False.
     """
     user_id = get_jwt_identity()
     date_str = request.args.get("date")
@@ -253,13 +252,20 @@ def get_habits() -> Dict[str, List[Dict[str, object]]]:
             return {"error": str(e)}, 400
     else:
         target_date = date.today()
-    # Retrieve all habits
+
+    # Re‑seed the habits table if it is empty
+    if Habit.query.count() == 0:
+        seed_habits()
+
     habits = Habit.query.order_by(Habit.id).all()
-    entries_by_habit = {
-        entry.habit_id: entry
-        for entry in HabitEntry.query.filter_by(user_id=user_id, date=target_date).all()
-    }
-    result = []
+    result: List[Dict[str, object]] = []
+    # Only pull completion records if the user is authenticated
+    entries_by_habit: Dict[int, HabitEntry] = {}
+    if user_id is not None:
+        entries_by_habit = {
+            entry.habit_id: entry
+            for entry in HabitEntry.query.filter_by(user_id=user_id, date=target_date).all()
+        }
     for habit in habits:
         entry = entries_by_habit.get(habit.id)
         result.append({
