@@ -11,7 +11,7 @@ Endpoints:
   POST /register               Register a new user account.
   POST /login                  Authenticate a user and return a JWT.
   GET  /quote                  Retrieve a random inspirational quote.
-  GET  /habits                 Return the list of habits and their completion
+  GET  /habits                 Return the list of habits and completion
                                status for a given date.
   POST /habits                 Save the user's habit completions for a date.
   GET  /progress               Retrieve aggregated completion data for a
@@ -19,7 +19,7 @@ Endpoints:
 
 The API enforces authentication on all habit‑related endpoints using Flask‑JWT‑
 Extended. CORS is enabled to allow cross‑origin requests from the Netlify
-front‑end. See README.md for deployment instructions.
+front‑end.
 """
 
 from __future__ import annotations
@@ -40,7 +40,6 @@ from flask_jwt_extended import (
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import check_password_hash, generate_password_hash
 
-
 ###########################
 # Application setup
 ###########################
@@ -60,28 +59,22 @@ app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "super-secret-jwt-key
 
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
-# Configure CORS to allow all origins and expose the Authorization header so that
-# browsers can read it during preflight. Without exposing Authorization, some
-# browsers may fail to send the header correctly.
+
+# Configure CORS to allow all origins and expose/allow the Authorization header
+# so that the browser can send it and read it during preflight.
 cors = CORS(
     app,
     resources={r"*": {"origins": "*"}},
     expose_headers=["Authorization"],
+    allow_headers=["Authorization", "Content-Type"],
     supports_credentials=False,
 )
 
 @app.before_request
 def handle_preflight() -> None:
-    """Return a 200 OK for any CORS preflight OPTIONS request.
-
-    When the browser sends an OPTIONS request to check CORS permissions, we
-    bypass authentication and return early. This avoids `jwt_required` raising
-    errors on preflight requests, which would otherwise result in a 422 status.
-    """
+    """Return a 200 OK for any CORS preflight OPTIONS request."""
     if request.method == "OPTIONS":
-        # Flask-CORS will add the appropriate CORS headers
         return "", 200
-
 
 ###########################
 # Database models
@@ -102,14 +95,12 @@ class User(db.Model):
     def check_password(self, password: str) -> bool:
         return check_password_hash(self.password_hash, password)
 
-
 class Habit(db.Model):
     __tablename__ = "habits"
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False, unique=True)
 
     entries = db.relationship("HabitEntry", back_populates="habit", cascade="all, delete-orphan")
-
 
 class HabitEntry(db.Model):
     __tablename__ = "habit_entries"
@@ -125,7 +116,6 @@ class HabitEntry(db.Model):
     __table_args__ = (
         db.UniqueConstraint("user_id", "habit_id", "date", name="user_habit_date_unique"),
     )
-
 
 ###########################
 # Utility functions
@@ -155,7 +145,6 @@ def seed_habits() -> None:
             db.session.add(Habit(name=name))
         db.session.commit()
 
-
 def get_quote() -> Dict[str, str]:
     """
     Fetch a random quote from the zenquotes.io API. If the API call fails,
@@ -175,11 +164,12 @@ def get_quote() -> Dict[str, str]:
         pass
     # Fallback quote in case of network failure
     return {
-        "quote": "Every day is a new opportunity to improve yourself."
-        " Be mindful, grateful, and purposeful.",
+        "quote": (
+            "Every day is a new opportunity to improve yourself. "
+            "Be mindful, grateful, and purposeful."
+        ),
         "author": "Unknown",
     }
-
 
 def parse_date(date_str: str) -> date:
     """Parse a YYYY-MM-DD string into a date object."""
@@ -188,20 +178,17 @@ def parse_date(date_str: str) -> date:
     except ValueError:
         raise ValueError("Date must be in YYYY-MM-DD format")
 
-
 ###########################
-# Routes
+# Initialize DB and seed habits
 ###########################
-
-# Initialize the database and seed habits when the application starts.
-# In Flask 3.x the before_first_request decorator has been removed, so we
-# perform this setup at import time inside the application context. This
-# ensures that the database tables are created and default habits are added
-# before the app starts serving requests.
+# In Flask 3.x, before_first_request is removed, so we create the DB at startup.
 with app.app_context():
     db.create_all()
     seed_habits()
 
+###########################
+# Routes
+###########################
 
 @app.route("/register", methods=["POST"])
 def register() -> tuple[Dict[str, str], int]:
@@ -225,7 +212,6 @@ def register() -> tuple[Dict[str, str], int]:
     db.session.commit()
     return {"message": "User registered successfully."}, 201
 
-
 @app.route("/login", methods=["POST"])
 def login() -> tuple[Dict[str, str], int]:
     """
@@ -243,12 +229,10 @@ def login() -> tuple[Dict[str, str], int]:
     token = create_access_token(identity=user.id)
     return {"access_token": token}, 200
 
-
 @app.route("/quote", methods=["GET"])
 def quote() -> Dict[str, str]:
     """Return a random inspirational quote."""
     return get_quote()
-
 
 @app.route("/habits", methods=["GET"])
 @jwt_required()
@@ -285,7 +269,6 @@ def get_habits() -> Dict[str, List[Dict[str, object]]]:
         })
     return {"date": target_date.isoformat(), "habits": result}
 
-
 @app.route("/habits", methods=["POST"])
 @jwt_required()
 def save_habits() -> tuple[Dict[str, object], int]:
@@ -312,8 +295,6 @@ def save_habits() -> tuple[Dict[str, object], int]:
 
     # Ensure all habits exist
     habits = Habit.query.order_by(Habit.id).all()
-    habit_ids = {habit.id for habit in habits}
-    # Update or create entries
     completed_count = 0
     for habit in habits:
         completed = bool(completions.get(str(habit.id)) or completions.get(habit.id))
@@ -333,7 +314,6 @@ def save_habits() -> tuple[Dict[str, object], int]:
     db.session.commit()
     percentage = (completed_count / len(habits) * 100) if habits else 0
     return {"message": "Habits saved.", "percentage": percentage}, 200
-
 
 @app.route("/progress", methods=["GET"])
 @jwt_required()
@@ -405,8 +385,6 @@ def progress() -> Dict[str, object]:
         "habits": list(habit_stats.values()),
     }
 
-
 if __name__ == "__main__":
-    # In development you can run the server directly. In production, use a WSGI
-    # server such as Gunicorn.
+    # Use Flask's built-in server only for local development.
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=True)
