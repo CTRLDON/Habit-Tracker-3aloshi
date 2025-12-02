@@ -173,9 +173,12 @@ def parse_date(date_str: str) -> date:
 # Routes
 ###########################
 
-@app.before_first_request
-def initialize_database() -> None:
-    """Initialize the database and seed default habits."""
+# Initialize the database and seed habits when the application starts.
+# In Flask 3.x the before_first_request decorator has been removed, so we
+# perform this setup at import time inside the application context. This
+# ensures that the database tables are created and default habits are added
+# before the app starts serving requests.
+with app.app_context():
     db.create_all()
     seed_habits()
 
