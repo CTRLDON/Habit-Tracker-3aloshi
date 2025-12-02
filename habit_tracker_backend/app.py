@@ -65,21 +65,21 @@ app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "super-secret-jwt-key
 # configure the extension to read the token from a custom header. We use
 # "X-Access-Token" as the header name and set the header type to an empty
 # string so that the token can be sent directly without a "Bearer " prefix.
-app.config["JWT_HEADER_NAME"] = "X-Access-Token"
-app.config["JWT_HEADER_TYPE"] = ""
 
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
 # Configure CORS to allow all origins and expose the Authorization header so that
 # browsers can read it during preflight. Without exposing Authorization, some
 # browsers may fail to send the header correctly.
+
 cors = CORS(
     app,
-    resources={r"*": {"origins": "*"}},
+    resources={r"/*": {"origins": "*"}},
     expose_headers=["Authorization"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_headers=["Content-Type", "Authorization"],
     supports_credentials=False,
 )
+
 
 @app.before_request
 def handle_preflight() -> None:
