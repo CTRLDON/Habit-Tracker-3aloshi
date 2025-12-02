@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Habit Tracker</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Chart.js from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div id="app">
+    <!-- Authentication forms -->
+    <div id="auth-container">
+      <h1>Habit Tracker</h1>
+      <div id="auth-forms">
+        <div id="login-form" class="auth-form">
+          <h2>Login</h2>
+          <input type="text" id="login-username" placeholder="Username" />
+          <input type="password" id="login-password" placeholder="Password" />
+          <button id="login-button">Login</button>
+          <p>Don't have an account? <a href="#" id="show-register">Register</a></p>
+          <div class="message" id="login-message"></div>
+        </div>
+        <div id="register-form" class="auth-form" style="display: none;">
+          <h2>Register</h2>
+          <input type="text" id="register-username" placeholder="Username" />
+          <input type="password" id="register-password" placeholder="Password" />
+          <button id="register-button">Register</button>
+          <p>Already have an account? <a href="#" id="show-login">Login</a></p>
+          <div class="message" id="register-message"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main habit tracker interface -->
+    <div id="tracker-container" style="display: none;">
+      <header>
+        <h1>My Daily Habits</h1>
+        <p id="current-date"></p>
+        <blockquote id="daily-quote"></blockquote>
+        <button id="logout-button">Sign Out</button>
+      </header>
+      <main>
+        <section id="habits-section">
+          <h2>Today's Habits</h2>
+          <form id="habits-form">
+            <!-- Habit checkboxes will be inserted here dynamically -->
+          </form>
+          <div id="progress-display">Completed: <span id="progress-percentage">0%</span></div>
+          <button id="save-button">Save Today's Habits</button>
+          <div class="message" id="save-message"></div>
+        </section>
+        <section id="charts-section">
+          <h2>Your Progress</h2>
+          <div class="charts-controls">
+            <button id="load-weekly">Weekly</button>
+            <button id="load-monthly">Monthly</button>
+          </div>
+          <canvas id="progress-chart" width="400" height="300"></canvas>
+        </section>
+      </main>
+    </div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>

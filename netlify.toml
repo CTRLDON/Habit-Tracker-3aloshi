@@ -1,0 +1,9 @@
+[build]
+  # Directory to publish your static site from. Netlify will serve files under this
+  # folder at the root of your domain. In this project the static front‑end is
+  # contained in the `habit_tracker` folder.
+  publish = "habit_tracker"
+
+# You can add more configuration options here if needed. For a simple static site
+# there is no build command because the HTML, CSS and JS files live directly
+# in the repository.
