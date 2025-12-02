@@ -10,7 +10,7 @@
 // Base URL of the backend API. When deploying, replace this with the URL of
 // your Flask service (e.g., https://your-backend.onrender.com). For local
 // development you can set it to the local server (e.g., http://localhost:5000).
-const API_BASE_URL = 'http://localhost:5000';
+const API_BASE_URL = 'https://habit-tracker-3aloshi.onrender.com';
 
 // DOM elements
 const authContainer = document.getElementById('auth-container');
