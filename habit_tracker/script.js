@@ -237,6 +237,13 @@ async function fetchHabits(dateStr) {
 // Render habits as checkboxes
 function renderHabits(habits) {
   habitsForm.innerHTML = '';
+  if (!habits || habits.length === 0) {
+    const msg = document.createElement('p');
+    msg.textContent = 'No habits available.';
+    habitsForm.appendChild(msg);
+    progressPercentageEl.textContent = '0%';
+    return;
+  }
   habits.forEach((habit) => {
     const wrapper = document.createElement('div');
     wrapper.className = 'habit-item';
