@@ -225,8 +225,9 @@ async function fetchHabits(dateStr) {
     // requests, so we send the token in X-Access-Token instead. The backend
     // is configured to read the token from this header.
     const response = await fetch(`${API_BASE_URL}/habits?date=${dateStr}`, {
-      headers: { 'X-Access-Token': token },
+       headers: { Authorization: `Bearer ${token}` },
     });
+
     const data = await response.json();
     if (response.ok) {
       renderHabits(data.habits);
@@ -295,10 +296,11 @@ async function saveHabits(dateStr) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Access-Token': token,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ date: dateStr, completions }),
     });
+
     const data = await response.json();
     if (response.ok) {
       saveMessage.style.color = '#27ae60';
@@ -319,7 +321,7 @@ async function loadProgress(period) {
   if (!token) return;
   try {
     const response = await fetch(`${API_BASE_URL}/progress?period=${period}`, {
-      headers: { 'X-Access-Token': token },
+      headers: { Authorization: `Bearer ${token}` },
     });
     const data = await response.json();
     if (response.ok) {
