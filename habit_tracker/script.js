@@ -220,8 +220,12 @@ async function fetchHabits(dateStr) {
   const token = getToken();
   if (!token) return;
   try {
+    // Use a custom header to send the JWT instead of the default Authorization
+    // header. Some CDNs/proxies strip the Authorization header from CORS
+    // requests, so we send the token in X-Access-Token instead. The backend
+    // is configured to read the token from this header.
     const response = await fetch(`${API_BASE_URL}/habits?date=${dateStr}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { 'X-Access-Token': token },
     });
     const data = await response.json();
     if (response.ok) {
@@ -291,7 +295,7 @@ async function saveHabits(dateStr) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+        'X-Access-Token': token,
       },
       body: JSON.stringify({ date: dateStr, completions }),
     });
@@ -315,7 +319,7 @@ async function loadProgress(period) {
   if (!token) return;
   try {
     const response = await fetch(`${API_BASE_URL}/progress?period=${period}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { 'X-Access-Token': token },
     });
     const data = await response.json();
     if (response.ok) {
