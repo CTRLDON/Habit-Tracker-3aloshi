@@ -1,22 +1,21 @@
 /*
  * Client-side logic for the habit tracker.
  *
- * This script handles user authentication, renders the habit checklist for the
- * selected date, calculates completion percentages, saves habit entries, and
- * fetches progress data to display charts. It communicates with the Flask
+ * This script handles user authentication, renders the daily habit
+ * checklist, calculates completion percentages, saves habit entries,
+ * and retrieves progress charts.  It communicates with the Flask
  * backend via fetch() calls.
  */
 
-// Base URL of the backend API. When deploying, replace this with the URL of
-// your Flask service (e.g., https://your-backend.onrender.com). For local
-// development you can set it to the local server (e.g., http://localhost:5000).
-const API_BASE_URL = 'https://habit-tracker-3aloshi.onrender.com';
+// Base URL of the backend API.  Replace this with your Render
+// deployment URL (e.g. https://your-backend.onrender.com) when deploying.
+const API_BASE_URL = 'http://localhost:5000';
 
 // DOM elements
 const authContainer = document.getElementById('auth-container');
 const trackerContainer = document.getElementById('tracker-container');
 
-// Auth forms and fields
+// Forms and messages
 const loginForm = document.getElementById('login-form');
 const registerForm = document.getElementById('register-form');
 const loginButton = document.getElementById('login-button');
@@ -63,24 +62,22 @@ function showRegisterForm() {
   registerMessage.textContent = '';
 }
 
-// Save token to localStorage
+// Token storage
 function setToken(token) {
   localStorage.setItem('habit_token', token);
 }
 
-// Retrieve token
 function getToken() {
   return localStorage.getItem('habit_token');
 }
 
-// Remove token
 function removeToken() {
   localStorage.removeItem('habit_token');
 }
 
-// Initialize event listeners
+// Initialize event listeners for authentication
 function initAuthListeners() {
-  // Switch between login and register forms
+  // Toggle between login and register
   showRegisterLink.addEventListener('click', (e) => {
     e.preventDefault();
     showRegisterForm();
@@ -90,7 +87,7 @@ function initAuthListeners() {
     showLoginForm();
   });
 
-  // Register new user
+  // Register
   registerButton.addEventListener('click', async () => {
     const username = document.getElementById('register-username').value.trim();
     const password = document.getElementById('register-password').value;
@@ -120,7 +117,7 @@ function initAuthListeners() {
     }
   });
 
-  // Login existing user
+  // Login
   loginButton.addEventListener('click', async () => {
     const username = document.getElementById('login-username').value.trim();
     const password = document.getElementById('login-password').value;
@@ -140,7 +137,6 @@ function initAuthListeners() {
         setToken(data.access_token);
         loginMessage.style.color = '#27ae60';
         loginMessage.textContent = 'Login successful!';
-        // After login, load tracker
         showTracker();
       } else {
         loginMessage.style.color = '#e74c3c';
@@ -155,24 +151,15 @@ function initAuthListeners() {
 
 // Initialize tracker page
 function initTracker() {
-  // Set current date
   const today = new Date();
   currentDateEl.textContent = today.toLocaleDateString(undefined, {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   });
-
-  // Fetch quote
   fetchQuote();
-
-  // Fetch habits for today
   fetchHabits(formatDate(today));
-
-  // Save habits
   saveButton.addEventListener('click', () => {
     saveHabits(formatDate(today));
   });
-
-  // Logout
   logoutButton.addEventListener('click', () => {
     removeToken();
     if (progressChart) {
@@ -182,8 +169,6 @@ function initTracker() {
     authContainer.style.display = 'block';
     showLoginForm();
   });
-
-  // Progress charts
   loadWeeklyButton.addEventListener('click', () => {
     loadProgress('weekly');
   });
@@ -196,11 +181,10 @@ function initTracker() {
 function showTracker() {
   authContainer.style.display = 'none';
   trackerContainer.style.display = 'block';
-  // Initialize tracker each time user logs in
   initTracker();
 }
 
-// Fetch quote from backend
+// Fetch a random quote
 async function fetchQuote() {
   try {
     const response = await fetch(`${API_BASE_URL}/quote`);
@@ -215,27 +199,27 @@ async function fetchQuote() {
   }
 }
 
-// Fetch habits for a particular date
+// Fetch habits for a given date.  The token is optional; if present it
+// sends the Authorization header so the backend can reflect completed
+// habits.
 async function fetchHabits(dateStr) {
   const token = getToken();
-  if (!token) return;
+  const headers = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
   try {
-    // Use a custom header to send the JWT instead of the default Authorization
-    // header. Some CDNs/proxies strip the Authorization header from CORS
-    // requests, so we send the token in X-Access-Token instead. The backend
-    // is configured to read the token from this header.
-    const response = await fetch(`${API_BASE_URL}/habits?date=${dateStr}`, {
-       headers: { Authorization: `Bearer ${token}` },
-    });
-
+    const response = await fetch(`${API_BASE_URL}/habits?date=${dateStr}`, { headers });
     const data = await response.json();
     if (response.ok) {
-      renderHabits(data.habits);
+      renderHabits(data.habits || []);
     } else {
       console.error(data.error);
+      renderHabits([]);
     }
   } catch (error) {
     console.error('Failed to fetch habits', error);
+    renderHabits([]);
   }
 }
 
@@ -264,11 +248,10 @@ function renderHabits(habits) {
     wrapper.appendChild(label);
     habitsForm.appendChild(wrapper);
   });
-  // Compute progress initially
   updateProgress();
 }
 
-// Update progress percentage display based on checked boxes
+// Update progress percentage
 function updateProgress() {
   const checkboxes = habitsForm.querySelectorAll('input[type="checkbox"]');
   let completed = 0;
@@ -280,7 +263,7 @@ function updateProgress() {
   progressPercentageEl.textContent = `${percentage}%`;
 }
 
-// Save habit completions to backend
+// Save habit completions
 async function saveHabits(dateStr) {
   const token = getToken();
   if (!token) return;
@@ -296,11 +279,10 @@ async function saveHabits(dateStr) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+        'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify({ date: dateStr, completions }),
     });
-
     const data = await response.json();
     if (response.ok) {
       saveMessage.style.color = '#27ae60';
@@ -315,13 +297,13 @@ async function saveHabits(dateStr) {
   }
 }
 
-// Load progress data and draw chart
+// Load progress and draw chart
 async function loadProgress(period) {
   const token = getToken();
   if (!token) return;
   try {
     const response = await fetch(`${API_BASE_URL}/progress?period=${period}`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { 'Authorization': `Bearer ${token}` },
     });
     const data = await response.json();
     if (response.ok) {
@@ -334,7 +316,7 @@ async function loadProgress(period) {
   }
 }
 
-// Draw bar chart of habit completion percentages using Chart.js
+// Draw bar chart using Chart.js
 function drawChart(habits, period) {
   const labels = habits.map((h) => h.name);
   const values = habits.map((h) => h.percentage);
@@ -366,7 +348,7 @@ function drawChart(habits, period) {
   });
 }
 
-// On page load, determine if the user is already authenticated
+// On page load, initialize
 document.addEventListener('DOMContentLoaded', () => {
   initAuthListeners();
   const token = getToken();
