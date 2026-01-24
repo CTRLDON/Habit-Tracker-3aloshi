@@ -244,7 +244,7 @@ def login() -> tuple[Dict[str, str], int]:
     user = User.query.filter_by(username=username).first()
     if user is None or not user.check_password(password):
         return {"error": "Invalid username or password."}, 401
-    token = create_access_token(identity=user.id)
+    token = create_access_token(identity=str(user.id))
     return {"access_token": token}, 200
 
 
@@ -280,7 +280,7 @@ def get_habits() -> Dict[str, object]:
     result: List[Dict[str, object]] = []
 
     # If user is authenticated, fetch their completion status
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     completions: Dict[int, bool] = {}
     if user_id is not None:
         entries = HabitEntry.query.filter_by(user_id=user_id, date=target_date).all()
@@ -305,7 +305,7 @@ def save_habits() -> tuple[Dict[str, object], int]:
           "completions": {"1": true, "2": false, ...}
         }
     """
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     data = request.get_json() or {}
     date_str = data.get("date")
     completions = data.get("completions")
@@ -352,7 +352,7 @@ def progress() -> Dict[str, object]:
       period: "weekly" (default) or "monthly"
       end_date: optional end date (YYYY-MM-DD)
     """
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())
     if user_id is None:
         return {"error": "Missing or invalid token."}, 401
 
