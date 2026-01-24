@@ -1,104 +1,377 @@
 /*
- * Dark theme styles for the habit tracker app.
+ * Improved dark theme styles for the habit tracker application.
+ *
+ * This stylesheet defines a modern glassy UI with responsive layouts
+ * and subtle animations. It includes variables for easy color
+ * customization and provides styles for both the authentication
+ * forms and the main tracker interface. Forms are centered on the page
+ * and cards are used to separate content visually. A progress bar,
+ * badge, and meta information display the user's daily completion
+ * status. Habits are displayed in a responsive grid that adjusts
+ * across screen sizes.
  */
 
-body {
-  font-family: Arial, sans-serif;
-  margin: 0;
-  padding: 0;
-  background-color: #121212;
-  color: #f0f0f0;
+:root {
+  /* Core color palette */
+  --bg: #0b1220;
+  --card: rgba(15, 27, 51, 0.8);
+  --card-solid: #0f1b33;
+  --text: #e8eefc;
+  --muted: #a9b7d0;
+  --border: #21314f;
+  --accent: #3b82f6;
+  --accent2: #22c55e;
+  --danger: #ef4444;
+  --shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
 }
 
-h1, h2 {
-  margin-top: 0;
-}
-
-header {
-  background-color: #1f2937;
-  color: #f0f0f0;
-  padding: 20px;
-  text-align: center;
-  position: relative;
-}
-
-header button {
-  position: absolute;
-  right: 20px;
-  top: 20px;
-  padding: 8px 12px;
-  background-color: #e74c3c;
-  border: none;
-  border-radius: 4px;
-  color: #fff;
-  cursor: pointer;
-}
-
-#auth-container, #tracker-container {
-  max-width: 700px;
-  margin: 40px auto;
-  padding: 20px;
-  background-color: #1e1e1e;
-  border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-}
-
-input[type="text"], input[type="password"] {
-  width: 100%;
-  padding: 10px;
-  margin: 10px 0;
-  border: 1px solid #333;
-  border-radius: 4px;
+* {
   box-sizing: border-box;
-  background-color: #2a2a2a;
-  color: #f0f0f0;
 }
 
-button {
-  background-color: #2563eb;
-  color: #f0f0f0;
-  padding: 10px 16px;
-  margin-top: 10px;
-  border: none;
-  border-radius: 4px;
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  background: radial-gradient(1200px 600px at 20% 0%, #182a55 0%, transparent 60%),
+    radial-gradient(1000px 600px at 80% 20%, #123c57 0%, transparent 55%),
+    var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* Center the authentication container */
+#auth-container {
+  width: min(440px, 94vw);
+  margin: 60px auto;
+  padding: 24px;
+  background: var(--card);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+}
+
+/* Form headings */
+#auth-container h1 {
+  text-align: center;
+  margin-bottom: 24px;
+  font-size: clamp(26px, 6vw, 32px);
+}
+
+.auth-form h2 {
+  margin-top: 0;
+  font-size: 20px;
+  margin-bottom: 12px;
+}
+
+.auth-form input[type="text"],
+.auth-form input[type="password"] {
+  width: 100%;
+  padding: 12px;
+  margin: 8px 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #1b2a4a;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.auth-form input:focus {
+  border-color: var(--accent);
+}
+
+.auth-form button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 12px;
+  background: var(--accent);
+  border: 1px solid rgba(59, 130, 246, 0.45);
+  border-radius: 12px;
+  color: var(--text);
+  font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  transition: transform 0.08s ease, filter 0.15s ease;
 }
 
-button:hover {
-  background-color: #1e40af;
+.auth-form button:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
 }
 
-.message {
+/* Toggle links */
+.auth-form p a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.auth-form .message {
+  margin-top: 8px;
+  color: var(--danger);
+  font-size: 14px;
+  min-height: 18px;
+}
+
+/* Shared container for the tracker sections */
+.container {
+  width: min(1000px, 92vw);
+  margin: 24px auto 60px;
+}
+
+/* Sticky header with brand and actions */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: linear-gradient(180deg, rgba(11, 18, 32, 0.95), rgba(11, 18, 32, 0.65));
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 16px 0;
+}
+
+.header-inner {
+  width: min(1000px, 92vw);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.brand {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.brand h1 {
+  margin: 0;
+  font-size: clamp(22px, 3vw, 32px);
+  letter-spacing: 0.4px;
+}
+
+.brand .date {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Buttons */
+.btn {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  cursor: pointer;
+  transition: transform 0.08s ease, filter 0.15s ease;
+}
+
+.btn:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.btn.danger {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.12);
+  color: #f8d3d3;
+}
+
+.btn.danger:hover {
+  filter: brightness(1.05);
+}
+
+/* Card styling for quote */
+.card {
+  background: var(--card);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: var(--shadow);
+  border-radius: 18px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.quote {
+  padding: 18px 18px 16px;
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.10), rgba(0, 0, 0, 0));
+}
+
+.quote blockquote {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: #eaf2ff;
+}
+
+.quote em {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Section wrapper */
+.section {
+  padding: 18px;
+  background: var(--card);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  margin-bottom: 24px;
+}
+
+.section h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+
+/* Progress bar and metadata */
+.progress-wrap {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.progress-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.progress-title {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.progress-badge {
+  background: rgba(59, 130, 246, 0.18);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  color: #d9e8ff;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.progress-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+
+.progress-meta {
+  display: flex;
+  justify-content: space-between;
   margin-top: 10px;
-  color: #e74c3c;
+  color: var(--muted);
+  font-size: 13px;
 }
 
+/* Habit grid */
+.habits-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+@media (min-width: 720px) {
+  .habits-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 980px) {
+  .habits-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* Habit item */
 .habit-item {
   display: flex;
   align-items: center;
-  margin-bottom: 8px;
-  background-color: #2a2a2a;
-  padding: 8px;
-  border-radius: 4px;
+  gap: 10px;
+  padding: 12px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: transform 0.08s ease, background 0.15s ease, border-color 0.15s ease;
+}
+
+.habit-item:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(59, 130, 246, 0.30);
 }
 
 .habit-item input[type="checkbox"] {
-  margin-right: 8px;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
 }
 
-blockquote {
-  font-style: italic;
-  margin-top: 10px;
-  color: #a5d8ff;
+.habit-item label {
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.2;
 }
 
-/* Controls for charts */
+/* Primary action button */
+.primary-btn {
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px 14px;
+  font-weight: 700;
+  border-radius: 14px;
+  border: 1px solid rgba(59, 130, 246, 0.45);
+  background: rgba(59, 130, 246, 0.22);
+  color: #eaf2ff;
+  cursor: pointer;
+  transition: transform 0.08s ease, filter 0.15s ease, background 0.15s ease;
+}
+
+.primary-btn:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.primary-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+  filter: none;
+}
+
+/* Hint text below save button */
+.hint {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 12.5px;
+  min-height: 18px;
+}
+
+/* Chart controls */
 .charts-controls {
   text-align: center;
   margin-bottom: 10px;
 }
 
-.charts-controls button {
+.charts-controls .btn {
   margin: 0 5px;
 }

@@ -1,67 +1,97 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Habit Tracker</title>
-  <link rel="stylesheet" href="style.css" />
-  <!-- Chart.js from CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-</head>
-<body>
-  <div id="app">
-    <!-- Authentication forms -->
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Habit Tracker</title>
+    <link rel="stylesheet" href="style.css" />
+    <!-- Chart.js for progress charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <!-- Authentication container -->
     <div id="auth-container">
       <h1>Habit Tracker</h1>
-      <div id="auth-forms">
-        <div id="login-form" class="auth-form">
-          <h2>Login</h2>
-          <input type="text" id="login-username" placeholder="Username" />
-          <input type="password" id="login-password" placeholder="Password" />
-          <button id="login-button">Login</button>
-          <p>Don't have an account? <a href="#" id="show-register">Register</a></p>
-          <div class="message" id="login-message"></div>
+      <!-- Login form -->
+      <form id="login-form" class="auth-form">
+        <h2>Log In</h2>
+        <input id="login-username" type="text" placeholder="Username" />
+        <input id="login-password" type="password" placeholder="Password" />
+        <button id="login-button" type="button">Log In</button>
+        <p id="login-message" class="message"></p>
+        <p>
+          Don&#39;t have an account?
+          <a href="#" id="show-register">Register here</a>
+        </p>
+      </form>
+      <!-- Registration form -->
+      <form id="register-form" class="auth-form" style="display: none;">
+        <h2>Register</h2>
+        <input id="register-username" type="text" placeholder="Username" />
+        <input id="register-password" type="password" placeholder="Password" />
+        <button id="register-button" type="button">Register</button>
+        <p id="register-message" class="message"></p>
+        <p>
+          Already have an account?
+          <a href="#" id="show-login">Log in here</a>
+        </p>
+      </form>
+    </div>
+
+    <!-- Tracker container -->
+    <div id="tracker-container" style="display: none;">
+      <header>
+        <div class="header-inner">
+          <div class="brand">
+            <h1>My Daily Habits</h1>
+            <div class="date" id="current-date"></div>
+          </div>
+          <div class="top-actions">
+            <button id="logout-button" class="btn danger" type="button">Sign Out</button>
+          </div>
         </div>
-        <div id="register-form" class="auth-form" style="display: none;">
-          <h2>Register</h2>
-          <input type="text" id="register-username" placeholder="Username" />
-          <input type="password" id="register-password" placeholder="Password" />
-          <button id="register-button">Register</button>
-          <p>Already have an account? <a href="#" id="show-login">Login</a></p>
-          <div class="message" id="register-message"></div>
+      </header>
+      <div class="container">
+        <!-- Quote card -->
+        <div class="card">
+          <div class="quote" id="quote-container">
+            <blockquote id="daily-quote"></blockquote>
+          </div>
         </div>
+        <!-- Habits section -->
+        <section id="habits-section" class="section">
+          <h2>Today&#39;s Habits</h2>
+          <div class="progress-wrap">
+            <div class="progress-top">
+              <div class="progress-title">Today&#39;s Progress</div>
+              <div class="progress-badge" id="completion-badge">0%</div>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+            </div>
+            <div class="progress-meta">
+              <span id="completion-text">Completed: 0%</span>
+              <span id="completion-count">0 / 0 habits</span>
+            </div>
+          </div>
+          <form id="habits-form" class="habits-grid"></form>
+          <button id="save-button" class="primary-btn" type="button" disabled>Save Today&#39;s Habits</button>
+          <p id="save-hint" class="hint">Check some habits to enable saving.</p>
+          <p id="save-message" class="message"></p>
+        </section>
+        <!-- Progress section -->
+        <section id="progress-section" class="section">
+          <h2>Your Progress</h2>
+          <div class="charts-controls">
+            <button id="load-weekly" class="btn" type="button">Weekly</button>
+            <button id="load-monthly" class="btn" type="button">Monthly</button>
+          </div>
+          <canvas id="progress-chart"></canvas>
+        </section>
       </div>
     </div>
 
-    <!-- Main habit tracker interface -->
-    <div id="tracker-container" style="display: none;">
-      <header>
-        <h1>My Daily Habits</h1>
-        <p id="current-date"></p>
-        <blockquote id="daily-quote"></blockquote>
-        <button id="logout-button">Sign Out</button>
-      </header>
-      <main>
-        <section id="habits-section">
-          <h2>Today's Habits</h2>
-          <form id="habits-form">
-            <!-- Habit checkboxes will be inserted here dynamically -->
-          </form>
-          <div id="progress-display">Completed: <span id="progress-percentage">0%</span></div>
-          <button id="save-button">Save Today's Habits</button>
-          <div class="message" id="save-message"></div>
-        </section>
-        <section id="charts-section">
-          <h2>Your Progress</h2>
-          <div class="charts-controls">
-            <button id="load-weekly">Weekly</button>
-            <button id="load-monthly">Monthly</button>
-          </div>
-          <canvas id="progress-chart" width="400" height="300"></canvas>
-        </section>
-      </main>
-    </div>
-  </div>
-  <script src="script.js"></script>
-</body>
+    <!-- Application logic -->
+    <script src="script.js"></script>
+  </body>
 </html>

@@ -29,13 +29,21 @@ const showLoginLink = document.getElementById('show-login');
 const currentDateEl = document.getElementById('current-date');
 const dailyQuoteEl = document.getElementById('daily-quote');
 const habitsForm = document.getElementById('habits-form');
-const progressPercentageEl = document.getElementById('progress-percentage');
+// Progress elements for improved UI
+const completionBadge = document.getElementById('completion-badge');
+const progressFill = document.getElementById('progress-fill');
+const completionText = document.getElementById('completion-text');
+const completionCount = document.getElementById('completion-count');
 const saveButton = document.getElementById('save-button');
+const saveHint = document.getElementById('save-hint');
 const saveMessage = document.getElementById('save-message');
 const logoutButton = document.getElementById('logout-button');
 const loadWeeklyButton = document.getElementById('load-weekly');
 const loadMonthlyButton = document.getElementById('load-monthly');
 const progressChartCanvas = document.getElementById('progress-chart');
+
+// Track the original completion state for enabling/disabling the Save button
+let originalCompletions = null;
 
 let progressChart; // Chart.js instance
 
@@ -230,7 +238,14 @@ function renderHabits(habits) {
     const msg = document.createElement('p');
     msg.textContent = 'No habits available.';
     habitsForm.appendChild(msg);
-    progressPercentageEl.textContent = '0%';
+    // Reset progress UI for no habits
+    if (progressFill) progressFill.style.width = '0%';
+    if (completionBadge) completionBadge.textContent = '0%';
+    if (completionText) completionText.textContent = 'Completed: 0%';
+    if (completionCount) completionCount.textContent = '0 / 0 habits';
+    // Disable save button since nothing to save
+    saveButton.disabled = true;
+    if (saveHint) saveHint.textContent = 'No habits available.';
     return;
   }
   habits.forEach((habit) => {
@@ -248,19 +263,50 @@ function renderHabits(habits) {
     wrapper.appendChild(label);
     habitsForm.appendChild(wrapper);
   });
-  updateProgress();
+  // Capture the initial completion state and update UI
+  originalCompletions = getCurrentCompletions();
+  updateProgressUI();
+  updateSaveButtonState();
 }
 
-// Update progress percentage
-function updateProgress() {
+// Get an array of current completion statuses (booleans)
+function getCurrentCompletions() {
   const checkboxes = habitsForm.querySelectorAll('input[type="checkbox"]');
-  let completed = 0;
-  checkboxes.forEach((cb) => {
-    if (cb.checked) completed += 1;
-  });
-  const total = checkboxes.length;
-  const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
-  progressPercentageEl.textContent = `${percentage}%`;
+  return Array.from(checkboxes).map((cb) => cb.checked);
+}
+
+// Update the progress bar, badge and meta text
+function updateProgressUI() {
+  const completions = getCurrentCompletions();
+  const completed = completions.filter(Boolean).length;
+  const total = completions.length;
+  const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+  // Update bar fill and badge
+  if (progressFill) progressFill.style.width = `${percent}%`;
+  if (completionBadge) completionBadge.textContent = `${percent}%`;
+  if (completionText) completionText.textContent = `Completed: ${percent}%`;
+  if (completionCount) completionCount.textContent = `${completed} / ${total} habits`;
+}
+
+// Enable or disable the Save button depending on changes
+function updateSaveButtonState() {
+  if (!saveButton) return;
+  const current = getCurrentCompletions();
+  let changed = false;
+  // If originalCompletions is null, treat as no change (disable save)
+  if (originalCompletions) {
+    changed = current.some((val, idx) => val !== originalCompletions[idx]);
+  }
+  saveButton.disabled = !changed;
+  if (saveHint) {
+    saveHint.textContent = changed ? 'Ready to save ✨' : 'Check some habits to enable saving.';
+  }
+}
+
+// Update progress and button state when a checkbox changes
+function updateProgress() {
+  updateProgressUI();
+  updateSaveButtonState();
 }
 
 // Save habit completions
@@ -287,6 +333,9 @@ async function saveHabits(dateStr) {
     if (response.ok) {
       saveMessage.style.color = '#27ae60';
       saveMessage.textContent = `Habits saved! Completion: ${data.percentage.toFixed(0)}%`;
+      // Update the stored original completions after a successful save
+      originalCompletions = getCurrentCompletions();
+      updateSaveButtonState();
     } else {
       saveMessage.style.color = '#e74c3c';
       saveMessage.textContent = data.error || 'Failed to save.';
