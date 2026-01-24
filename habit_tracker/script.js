@@ -9,7 +9,7 @@
 
 // Base URL of the backend API.  Replace this with your Render
 // deployment URL (e.g. https://your-backend.onrender.com) when deploying.
-const API_BASE_URL = 'http://localhost:5000';
+const API_BASE_URL = 'https://habit-tracker-3aloshi.onrender.com';
 
 // DOM elements
 const authContainer = document.getElementById('auth-container');
