@@ -1,35 +1,40 @@
 """
 Flask backend for the habit tracker application.
 
-This application exposes a REST API that allows users to register an account,
-authenticate with JSON Web Tokens, log daily habit completions, retrieve their
-progress over different time periods, and fetch a motivational quote. It uses
-SQLite for persistence via SQLAlchemy and returns JSON responses suitable for
-consumption by a JavaScript front‑end.
+This module implements a small REST API to support a habit tracking
+application.  Users can register, log in, record completion of daily
+habits, retrieve their progress, and fetch a daily motivational quote.
 
-Endpoints:
-  POST /register               Register a new user account.
-  POST /login                  Authenticate a user and return a JWT.
-  GET  /quote                  Retrieve a random inspirational quote.
-  GET  /habits                 Return the list of habits and their completion
-                               status for a given date.
-  POST /habits                 Save the user's habit completions for a date.
-  GET  /progress               Retrieve aggregated completion data for a
-                               period (weekly or monthly).
+Key features:
 
-The API enforces authentication on all habit‑related endpoints using Flask‑JWT‑
-Extended. CORS is enabled to allow cross‑origin requests from the Netlify
-front‑end. See README.md for deployment instructions.
+* Uses Flask 3.x with SQLAlchemy for persistence and Flask-JWT-Extended
+  for authentication.  The database defaults to SQLite but can be
+  overridden via the `DATABASE_URL` environment variable.
+* CORS is configured to allow cross‑origin requests from the static
+  front‑end.  The standard `Authorization` header is explicitly
+  permitted; MDN notes that `Authorization` must be listed in
+  `Access-Control-Allow-Headers` and cannot be wildcarded【62605746793919†L219-L223】.
+* The `GET /habits` endpoint is public.  It always returns the list of
+  habits for the requested date, so the front‑end can render the
+  checklist even before the user logs in.  If a token is provided,
+  completions will be reflected; otherwise all habits are marked as
+  incomplete.
+* `POST /habits` and `GET /progress` require authentication via
+  JSON Web Tokens.
+* At startup, the application creates the database and seeds the
+  default habit list.  Flask 3 removed the `before_first_request`
+  decorator【604527695963413†L182-L184】, so initialization is done
+  inside `app.app_context()` at import time.
 """
 
 from __future__ import annotations
 
 import os
-from datetime import datetime, timedelta, date
-from typing import Dict, List
+from datetime import date, datetime, timedelta
+from typing import Dict, List, Optional
 
 import requests
-from flask import Flask, jsonify, request
+from flask import Flask, request
 from flask_cors import CORS
 from flask_jwt_extended import (
     JWTManager,
@@ -38,8 +43,7 @@ from flask_jwt_extended import (
     jwt_required,
 )
 from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import check_password_hash, generate_password_hash
-
+from werkzeug.security import generate_password_hash, check_password_hash
 
 ###########################
 # Application setup
@@ -48,50 +52,30 @@ from werkzeug.security import check_password_hash, generate_password_hash
 # Create Flask app and configure database
 app = Flask(__name__)
 
-# Use SQLite database by default. You can override with the DATABASE_URL
-# environment variable when deploying (e.g., to Postgres on Render).
+# Use SQLite database by default.  Set DATABASE_URL to override.
 database_url = os.getenv("DATABASE_URL", "sqlite:///habits.db")
 app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-# Secret keys for Flask and JWT. Always override in production via environment.
+# Secret keys for Flask and JWT.  In production these should be set via
+# environment variables.
 app.config["SECRET_KEY"] = os.getenv("FLASK_SECRET_KEY", "super-secret-key")
 app.config["JWT_SECRET_KEY"] = os.getenv("JWT_SECRET_KEY", "super-secret-jwt-key")
 
-# Configure where JWTs are expected. By default flask-jwt-extended looks
-# for an Authorization header with a Bearer token. Some proxies and CDNs may
-# strip or rewrite the Authorization header on cross-origin requests, which
-# causes 422 errors when the token cannot be found. To avoid this, we
-# configure the extension to read the token from a custom header. We use
-# "X-Access-Token" as the header name and set the header type to an empty
-# string so that the token can be sent directly without a "Bearer " prefix.
-
+# Initialize extensions
 db = SQLAlchemy(app)
 jwt = JWTManager(app)
-# Configure CORS to allow all origins and expose the Authorization header so that
-# browsers can read it during preflight. Without exposing Authorization, some
-# browsers may fail to send the header correctly.
 
+# Configure CORS.  Explicitly allow the Authorization header; wildcards
+# do not cover it【62605746793919†L219-L223】.  Expose Authorization so the
+# browser can access it.  Credentials (cookies) are not used.
 cors = CORS(
     app,
     resources={r"/*": {"origins": "*"}},
-    expose_headers=["Authorization"],
     allow_headers=["Content-Type", "Authorization"],
+    expose_headers=["Authorization"],
     supports_credentials=False,
 )
-
-
-@app.before_request
-def handle_preflight() -> None:
-    """Return a 200 OK for any CORS preflight OPTIONS request.
-
-    When the browser sends an OPTIONS request to check CORS permissions, we
-    bypass authentication and return early. This avoids `jwt_required` raising
-    errors on preflight requests, which would otherwise result in a 422 status.
-    """
-    if request.method == "OPTIONS":
-        # Flask-CORS will add the appropriate CORS headers
-        return "", 200
 
 
 ###########################
@@ -99,13 +83,19 @@ def handle_preflight() -> None:
 ###########################
 
 class User(db.Model):
+    """User model for authentication."""
+
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    habit_entries = db.relationship("HabitEntry", back_populates="user", cascade="all, delete-orphan")
+    habit_entries = db.relationship(
+        "HabitEntry",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
     def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password)
@@ -115,14 +105,22 @@ class User(db.Model):
 
 
 class Habit(db.Model):
+    """Model for a habit definition."""
+
     __tablename__ = "habits"
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False, unique=True)
 
-    entries = db.relationship("HabitEntry", back_populates="habit", cascade="all, delete-orphan")
+    entries = db.relationship(
+        "HabitEntry",
+        back_populates="habit",
+        cascade="all, delete-orphan",
+    )
 
 
 class HabitEntry(db.Model):
+    """Model linking a user to a habit on a particular date."""
+
     __tablename__ = "habit_entries"
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
@@ -143,7 +141,7 @@ class HabitEntry(db.Model):
 ###########################
 
 def seed_habits() -> None:
-    """Populate the habits table with the default list if it's empty."""
+    """Populate the habits table with a default list if it is empty."""
     default_habits = [
         "Wake early",
         "Hydrate",
@@ -169,7 +167,7 @@ def seed_habits() -> None:
 
 def get_quote() -> Dict[str, str]:
     """
-    Fetch a random quote from the zenquotes.io API. If the API call fails,
+    Fetch a random quote from zenquotes.io.  If the API call fails,
     return a fallback quote.
 
     Returns a dictionary with keys 'quote' and 'author'.
@@ -181,19 +179,24 @@ def get_quote() -> Dict[str, str]:
         if isinstance(data, list) and data:
             q = data[0].get("q")
             a = data[0].get("a")
-            return {"quote": q, "author": a}
+            if q and a:
+                return {"quote": q, "author": a}
     except Exception:
         pass
-    # Fallback quote in case of network failure
+    # Fallback quote
     return {
-        "quote": "Every day is a new opportunity to improve yourself."
-        " Be mindful, grateful, and purposeful.",
+        "quote": (
+            "Every day is a new opportunity to improve yourself. "
+            "Be mindful, grateful, and purposeful."
+        ),
         "author": "Unknown",
     }
 
 
-def parse_date(date_str: str) -> date:
-    """Parse a YYYY-MM-DD string into a date object."""
+def parse_date(date_str: Optional[str]) -> date:
+    """Parse a YYYY-MM-DD string into a date object, or return today."""
+    if not date_str:
+        return date.today()
     try:
         return datetime.strptime(date_str, "%Y-%m-%d").date()
     except ValueError:
@@ -201,31 +204,26 @@ def parse_date(date_str: str) -> date:
 
 
 ###########################
-# Routes
+# Initialization
 ###########################
 
-# Initialize the database and seed habits when the application starts.
-# In Flask 3.x the before_first_request decorator has been removed, so we
-# perform this setup at import time inside the application context. This
-# ensures that the database tables are created and default habits are added
-# before the app starts serving requests.
+# Create tables and seed habits at import time.  This replaces
+# before_first_request, which was removed in Flask 3【604527695963413†L182-L184】.
 with app.app_context():
     db.create_all()
     seed_habits()
 
 
-@app.route("/register", methods=["POST"])
-def register() -> tuple[Dict[str, str], int]:
-    """
-    Register a new user.
+###########################
+# Routes
+###########################
 
-    Expects JSON with 'username' and 'password'. Returns a success message on
-    success or an error message if the username is already taken or the input
-    is invalid.
-    """
+@app.post("/register")
+def register() -> tuple[Dict[str, str], int]:
+    """Register a new user account."""
     data = request.get_json() or {}
-    username = data.get("username", "").strip().lower()
-    password = data.get("password", "")
+    username = (data.get("username") or "").strip().lower()
+    password = data.get("password") or ""
     if not username or not password:
         return {"error": "Username and password are required."}, 400
     if User.query.filter_by(username=username).first():
@@ -237,17 +235,12 @@ def register() -> tuple[Dict[str, str], int]:
     return {"message": "User registered successfully."}, 201
 
 
-@app.route("/login", methods=["POST"])
+@app.post("/login")
 def login() -> tuple[Dict[str, str], int]:
-    """
-    Authenticate a user and return a JWT access token.
-
-    Expects JSON with 'username' and 'password'. On success returns
-    {"access_token": token}. On failure returns an error message.
-    """
+    """Authenticate a user and return a JWT."""
     data = request.get_json() or {}
-    username = data.get("username", "").strip().lower()
-    password = data.get("password", "")
+    username = (data.get("username") or "").strip().lower()
+    password = data.get("password") or ""
     user = User.query.filter_by(username=username).first()
     if user is None or not user.check_password(password):
         return {"error": "Invalid username or password."}, 401
@@ -255,72 +248,62 @@ def login() -> tuple[Dict[str, str], int]:
     return {"access_token": token}, 200
 
 
-@app.route("/quote", methods=["GET"])
+@app.get("/quote")
 def quote() -> Dict[str, str]:
     """Return a random inspirational quote."""
     return get_quote()
 
 
-@app.route("/habits", methods=["GET"])
+@app.get("/habits")
 @jwt_required(optional=True)
-def get_habits() -> Dict[str, List[Dict[str, object]]]:
+def get_habits() -> Dict[str, object]:
     """
-    Return the user's habits and completion status for a given date.
+    Return the list of habits and completion status for a given date.
 
-    Query parameters:
-      - date: optional date in YYYY-MM-DD format. Defaults to today (server time).
-    Returns a list of habits with fields id, name, and completed (boolean).
+    If the caller is authenticated, completion records will reflect their
+    stored data; otherwise all habits are marked incomplete.  The date is
+    supplied via the `date` query parameter (YYYY-MM-DD) and defaults
+    to today.
     """
-    # If the request includes a valid JWT, this will return the user id.
-    # When optional=True is set on the decorator, get_jwt_identity() will
-    # return None if the token is missing or invalid rather than raising an error.
-    user_id = get_jwt_identity()
-    date_str = request.args.get("date")
-    if date_str:
-        try:
-            target_date = parse_date(date_str)
-        except ValueError as e:
-            return {"error": str(e)}, 400
-    else:
-        target_date = date.today()
-    # Ensure the habits table is seeded. If the database is empty for any reason
-    # (for example, if the initialization did not run), seed the default habits
-    # before retrieving them.
+    # Determine date
+    try:
+        target_date = parse_date(request.args.get("date"))
+    except ValueError as e:
+        return {"error": str(e)}, 400
+
+    # Ensure habit definitions exist
     if Habit.query.count() == 0:
         seed_habits()
-    # Retrieve all habits
+
+    # Get all habits
     habits = Habit.query.order_by(Habit.id).all()
     result: List[Dict[str, object]] = []
-    # If a user is logged in (user_id is not None), fetch their completion
-    # records for the target date. Otherwise, default all completions to False.
-    entries_by_habit: Dict[int, HabitEntry] = {}
+
+    # If user is authenticated, fetch their completion status
+    user_id = get_jwt_identity()
+    completions: Dict[int, bool] = {}
     if user_id is not None:
-        entries_by_habit = {
-            entry.habit_id: entry
-            for entry in HabitEntry.query.filter_by(user_id=user_id, date=target_date).all()
-        }
+        entries = HabitEntry.query.filter_by(user_id=user_id, date=target_date).all()
+        completions = {entry.habit_id: bool(entry.completed) for entry in entries}
+
     for habit in habits:
-        entry = entries_by_habit.get(habit.id)
-        result.append({
-            "id": habit.id,
-            "name": habit.name,
-            "completed": bool(entry.completed) if entry else False,
-        })
-    return {"date": target_date.isoformat(), "habits": result}
+        completed = completions.get(habit.id, False)
+        result.append({"id": habit.id, "name": habit.name, "completed": completed})
+    return {"date": target_date.isoformat(), "habits": result}, 200
 
 
-@app.route("/habits", methods=["POST"])
+@app.post("/habits")
 @jwt_required()
 def save_habits() -> tuple[Dict[str, object], int]:
     """
-    Save the user's habit completions for a specific date.
+    Save the user's habit completions for a specific date.  Requires
+    authentication.
 
-    Expects JSON with:
-        - date: YYYY-MM-DD string
-        - completions: a dict mapping habit IDs (as strings) to booleans
-
-    Creates or updates HabitEntry records for the given date. Returns the
-    completion percentage (number of completed habits / total habits * 100).
+    Expected JSON payload:
+        {
+          "date": "YYYY-MM-DD",
+          "completions": {"1": true, "2": false, ...}
+        }
     """
     user_id = get_jwt_identity()
     data = request.get_json() or {}
@@ -333,24 +316,24 @@ def save_habits() -> tuple[Dict[str, object], int]:
     except ValueError as e:
         return {"error": str(e)}, 400
 
-    # Ensure all habits exist
     habits = Habit.query.order_by(Habit.id).all()
-    habit_ids = {habit.id for habit in habits}
-    # Update or create entries
     completed_count = 0
     for habit in habits:
-        completed = bool(completions.get(str(habit.id)) or completions.get(habit.id))
-        entry = HabitEntry.query.filter_by(user_id=user_id, habit_id=habit.id, date=target_date).first()
+        completed = bool(completions.get(str(habit.id))) or bool(completions.get(habit.id))
+        entry = HabitEntry.query.filter_by(
+            user_id=user_id, habit_id=habit.id, date=target_date
+        ).first()
         if entry:
             entry.completed = completed
         else:
-            entry = HabitEntry(
-                user_id=user_id,
-                habit_id=habit.id,
-                date=target_date,
-                completed=completed,
+            db.session.add(
+                HabitEntry(
+                    user_id=user_id,
+                    habit_id=habit.id,
+                    date=target_date,
+                    completed=completed,
+                )
             )
-            db.session.add(entry)
         if completed:
             completed_count += 1
     db.session.commit()
@@ -358,29 +341,27 @@ def save_habits() -> tuple[Dict[str, object], int]:
     return {"message": "Habits saved.", "percentage": percentage}, 200
 
 
-@app.route("/progress", methods=["GET"])
-@jwt_required()
+@app.get("/progress")
+@jwt_required(optional=True)
 def progress() -> Dict[str, object]:
     """
-    Return aggregated habit completion data for a given period.
+    Return aggregated completion data for a given period.  Requires
+    authentication.
 
     Query parameters:
-      - period: 'weekly' (default) or 'monthly'
-      - end_date: optional date (YYYY-MM-DD) marking the end of the period.
-
-    The API returns a list of habits with counts of completed days and total
-    occurrences within the period, along with percentage completions.
+      period: "weekly" (default) or "monthly"
+      end_date: optional end date (YYYY-MM-DD)
     """
     user_id = get_jwt_identity()
+    if user_id is None:
+        return {"error": "Missing or invalid token."}, 401
+
     period = request.args.get("period", "weekly").lower()
-    end_date_str = request.args.get("end_date")
-    if end_date_str:
-        try:
-            end_date = parse_date(end_date_str)
-        except ValueError as e:
-            return {"error": str(e)}, 400
-    else:
-        end_date = date.today()
+    try:
+        end_date = parse_date(request.args.get("end_date"))
+    except ValueError as e:
+        return {"error": str(e)}, 400
+
     if period == "weekly":
         start_date = end_date - timedelta(days=6)
     elif period == "monthly":
@@ -388,9 +369,8 @@ def progress() -> Dict[str, object]:
     else:
         return {"error": "Period must be 'weekly' or 'monthly'."}, 400
 
-    # Build a map for each habit
     habits = Habit.query.order_by(Habit.id).all()
-    habit_stats = {
+    habit_stats: Dict[int, Dict[str, object]] = {
         habit.id: {
             "id": habit.id,
             "name": habit.name,
@@ -400,20 +380,18 @@ def progress() -> Dict[str, object]:
         for habit in habits
     }
 
-    # Count entries per day
-    current_date = start_date
-    while current_date <= end_date:
-        # For each day, get entries for user
-        entries = HabitEntry.query.filter_by(user_id=user_id, date=current_date).all()
+    current = start_date
+    while current <= end_date:
+        entries = HabitEntry.query.filter_by(user_id=user_id, date=current).all()
         entries_map = {entry.habit_id: entry.completed for entry in entries}
         for habit in habits:
             stats = habit_stats[habit.id]
             stats["total_days"] += 1
             if entries_map.get(habit.id):
                 stats["completed_days"] += 1
-        current_date += timedelta(days=1)
+        current += timedelta(days=1)
 
-    # Compute percentages
+    # Calculate percentages
     for stats in habit_stats.values():
         if stats["total_days"] > 0:
             stats["percentage"] = round(
@@ -421,15 +399,16 @@ def progress() -> Dict[str, object]:
             )
         else:
             stats["percentage"] = 0.0
+
     return {
         "start_date": start_date.isoformat(),
         "end_date": end_date.isoformat(),
         "period": period,
         "habits": list(habit_stats.values()),
-    }
+    }, 200
 
 
 if __name__ == "__main__":
-    # In development you can run the server directly. In production, use a WSGI
-    # server such as Gunicorn.
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)), debug=True)
+    # For local development only.  In production use a WSGI server like Gunicorn.
+    port = int(os.getenv("PORT", "5000"))
+    app.run(host="0.0.0.0", port=port, debug=True)
